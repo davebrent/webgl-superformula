@@ -1,0 +1,10 @@
+{
+  "name": "superformula",
+  "version": "0.0.0",
+  "devDependencies": {
+    "glsl-loader": "~0.0.1",
+    "webpack": "~1.5.3",
+    "dat-gui": "~0.5.0",
+    "gl-matrix": "^2.1.0"
+  }
+}
