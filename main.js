@@ -49,19 +49,43 @@ function compileShader (gl, type, src) {
 }
 
 
-function sphere (resolution) {
+function sphere (segments) {
   var vertices = [];
+  var indices = [];
+  var x, y, v1, v2, v3, v4, theta, phi;
 
-  for(var i = 0; i < 360; i += resolution) {
-    var theta = (i / 180.0) * Math.PI;
-    for(var j = 0; j < 360; j += resolution) {
-      var phi = (j / 180.0) * Math.PI;
+  for (y = 0; y <= segments; y++) {
+    theta = (((y / segments) * 360) / 180.0) * Math.PI;
+
+    for (x = 0; x <= segments; x++) {
+      phi = (((x / segments) * 360) / 180.0) * Math.PI;
+
       vertices.push(phi);
       vertices.push(theta);
     }
   }
 
-  return new Float32Array(vertices);
+  for (y = 0; y < segments; y++) {
+    for (x = 0; x < segments; x++) {
+      v1 = (y * (segments + 1)) + x;
+      v2 = v1 + segments + 1;
+      v3 = v1 + 1;
+      v4 = v2 + 1;
+
+      indices.push(v1);
+      indices.push(v2);
+      indices.push(v3);
+
+      indices.push(v2);
+      indices.push(v4);
+      indices.push(v3);
+    }
+  }
+
+  return {
+    vertices: new Float32Array(vertices),
+    indices: new Uint16Array(indices)
+  };
 }
 
 
@@ -71,14 +95,14 @@ function createGUI (gl, callback) {
   var controller = {
     "rendering": {
       "Auto-rotate": true,
-      "Draw mode": gl.POINTS,
+      "Draw mode": gl.LINES,
       "Background": [0, 0, 0],
       "Color": [255, 255, 255],
       "Opacity": 0.5,
       "Point size": 0.75,
     },
-    "shape1": {"m": 3, "n1": 5, "n2": 18, "n3": 18, "Scale": 1},
-    "shape2": {"m": 6, "n1": 1, "n2": 1, "n3": 6, "Scale": 1}
+    "shape1": {"m": 2, "n1": 2, "n2": 1, "n3": 3, "Scale": 0.75},
+    "shape2": {"m": 3, "n1": 1, "n2": 1, "n3": 6, "Scale": 0.75}
   }
 
   var renderView = view.addFolder("Rendering");
@@ -125,9 +149,12 @@ function main (canvas, gl) {
     setSize(canvas, gl, window.innerWidth, window.innerHeight);
   }, false);
 
+  var vertShader = compileShader(gl, gl.VERTEX_SHADER, vertShaderSrc());
+  var fragShader = compileShader(gl, gl.FRAGMENT_SHADER, fragShaderSrc());
+
   var shader = gl.createProgram();
-  gl.attachShader(shader, compileShader(gl, gl.VERTEX_SHADER, vertShaderSrc()));
-  gl.attachShader(shader, compileShader(gl, gl.FRAGMENT_SHADER, fragShaderSrc()));
+  gl.attachShader(shader, vertShader);
+  gl.attachShader(shader, fragShader);
   gl.linkProgram(shader);
 
   shader.uniforms = {
@@ -148,21 +175,32 @@ function main (canvas, gl) {
 
   gl.enableVertexAttribArray(shader.attributes.position);
 
-  var phiGeometry = {};
-  phiGeometry.buffer = gl.createBuffer();
-  phiGeometry.array = sphere(1);
-  phiGeometry.itemSize = 2;
-  phiGeometry.numItems = phiGeometry.array.length / phiGeometry.itemSize;
+  var geometry = sphere(64);
 
-  gl.bindBuffer(gl.ARRAY_BUFFER, phiGeometry.buffer);
-  gl.bufferData(gl.ARRAY_BUFFER, phiGeometry.array, gl.STATIC_DRAW);
-  gl.vertexAttribPointer(shader.attributes.position, phiGeometry.itemSize, gl.FLOAT, false, 0, 0);
+  var verticesBuffer = {};
+  verticesBuffer.buffer = gl.createBuffer();
+  verticesBuffer.itemSize = 2;
+  verticesBuffer.numItems = geometry.vertices.length / verticesBuffer.itemSize;
+
+  var indicesBuffer = {};
+  indicesBuffer.buffer = gl.createBuffer();
+  indicesBuffer.itemSize = 1;
+  indicesBuffer.numItems = geometry.indices.length;
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, verticesBuffer.buffer);
+  gl.bufferData(gl.ARRAY_BUFFER, geometry.vertices, gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indicesBuffer.buffer);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, geometry.indices, gl.STATIC_DRAW);
+  delete geometry;
+
+  gl.vertexAttribPointer(shader.attributes.position, verticesBuffer.itemSize,
+                         gl.FLOAT, false, 0, 0);
 
   var modelViewMatrix = glMatrix.mat4.create();
   var projectionMatrix = glMatrix.mat4.create();
 
   gl.useProgram(shader);
-  gl.bindBuffer(gl.ARRAY_BUFFER, phiGeometry.buffer);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indicesBuffer.buffer);
 
   gl.enable(gl.DEPTH_TEST);
   gl.depthFunc(gl.LESS);
@@ -175,15 +213,21 @@ function main (canvas, gl) {
     var color = params.rendering["Color"];
     var opacity = params.rendering["Opacity"];
 
-    gl.clearColor(clearColor[0] / 255, clearColor[1] / 255, clearColor[2] / 255, 1.0);
+    gl.clearColor(clearColor[0] / 255, clearColor[1] / 255,
+                  clearColor[2] / 255, 1.0);
 
     gl.uniform2fv(shader.uniforms.m, [params.shape1["m"], params.shape2["m"]]);
-    gl.uniform2fv(shader.uniforms.n1, [params.shape1["n1"], params.shape2["n1"]]);
-    gl.uniform2fv(shader.uniforms.n2, [params.shape1["n2"], params.shape2["n2"]]);
-    gl.uniform2fv(shader.uniforms.n3, [params.shape1["n3"], params.shape2["n3"]]);
-    gl.uniform2fv(shader.uniforms.scale, [params.shape1["Scale"], params.shape2["Scale"]]);
+    gl.uniform2fv(shader.uniforms.n1, [params.shape1["n1"],
+                                       params.shape2["n1"]]);
+    gl.uniform2fv(shader.uniforms.n2, [params.shape1["n2"],
+                                       params.shape2["n2"]]);
+    gl.uniform2fv(shader.uniforms.n3, [params.shape1["n3"],
+                                       params.shape2["n3"]]);
+    gl.uniform2fv(shader.uniforms.scale, [params.shape1["Scale"],
+                                          params.shape2["Scale"]]);
     gl.uniform1f(shader.uniforms.pointSize, params.rendering["Point size"]);
-    gl.uniform4fv(shader.uniforms.color, [color[0] / 255, color[1] / 255, color[2] / 255, opacity]);
+    gl.uniform4fv(shader.uniforms.color, [color[0] / 255, color[1] / 255,
+                                          color[2] / 255, opacity]);
   });
 
   var rotate = 0;
@@ -204,10 +248,12 @@ function main (canvas, gl) {
       rotate += 0.005;
     }
 
-    gl.uniformMatrix4fv(shader.uniforms.projectionMatrix, false, projectionMatrix);
-    gl.uniformMatrix4fv(shader.uniforms.modelViewMatrix, false, modelViewMatrix);
+    gl.uniformMatrix4fv(shader.uniforms.projectionMatrix, false,
+                        projectionMatrix);
+    gl.uniformMatrix4fv(shader.uniforms.modelViewMatrix, false,
+                        modelViewMatrix);
 
-    gl.drawArrays(mode, 0, phiGeometry.numItems);
+    gl.drawElements(mode, indicesBuffer.numItems, gl.UNSIGNED_SHORT, 0);
     requestAnimationFrame(render);
   }());
 }
