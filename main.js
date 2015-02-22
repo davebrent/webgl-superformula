@@ -122,8 +122,14 @@ function createGUI (gl, callback) {
       "Opacity": 0.5,
       "Point size": 0.75,
     },
-    "shape1": {"m": 2, "n1": 2, "n2": 1, "n3": 3, "Scale": 0.75},
-    "shape2": {"m": 3, "n1": 1, "n2": 1, "n3": 6, "Scale": 0.75}
+    "morph": {
+      "Shape A morph": 0.5,
+      "Shape B morph": 0.5,
+      "Shape morph": 0.5,
+      "Type morph": 0.5,
+    },
+    "shape1": {"m": 2, "n1": 2, "n2": 1, "n3": 3, "Scale": 1},
+    "shape2": {"m": 3, "n1": 6, "n2": 5, "n3": 6, "Scale": 1}
   }
 
   var renderView = view.addFolder("Rendering");
@@ -144,12 +150,20 @@ function createGUI (gl, callback) {
   renderView.add(controller.rendering, "Point size", 0, 4).onChange(callback);
   renderView.open();
 
+  var morphView = view.addFolder("Morph");
+  morphView.add(controller.morph, "Shape A morph", 0, 1).onChange(callback);
+  morphView.add(controller.morph, "Shape B morph", 0, 1).onChange(callback);
+  morphView.add(controller.morph, "Shape morph", 0, 1).onChange(callback);
+  morphView.add(controller.morph, "Type morph", 0, 1).onChange(callback);
+  morphView.open();
+
   var shape1View = view.addFolder("Superformula A");
   shape1View.add(controller.shape1, "m", 1, 50).step(1).onChange(callback);
   shape1View.add(controller.shape1, "n1", 1, 50).step(1).onChange(callback);
   shape1View.add(controller.shape1, "n2", 1, 50).step(1).onChange(callback);
   shape1View.add(controller.shape1, "n3", 1, 50).step(1).onChange(callback);
   shape1View.add(controller.shape1, "Scale", 0, 2).onChange(callback);
+  shape1View.open();
 
   var shape2View = view.addFolder("Superformula B");
   shape2View.add(controller.shape2, "m", 1, 50).step(1).onChange(callback);
@@ -157,6 +171,7 @@ function createGUI (gl, callback) {
   shape2View.add(controller.shape2, "n2", 1, 50).step(1).onChange(callback);
   shape2View.add(controller.shape2, "n3", 1, 50).step(1).onChange(callback);
   shape2View.add(controller.shape2, "Scale", 0, 2).onChange(callback);
+  shape2View.open();
 
   callback(controller);
   return controller;
@@ -187,7 +202,11 @@ function main (canvas, gl) {
     color: gl.getUniformLocation(shader, "color"),
     pointSize: gl.getUniformLocation(shader, "pointSize"),
     projectionMatrix: gl.getUniformLocation(shader, "projectionMatrix"),
-    modelViewMatrix: gl.getUniformLocation(shader, "modelViewMatrix")
+    modelViewMatrix: gl.getUniformLocation(shader, "modelViewMatrix"),
+    typeMorph: gl.getUniformLocation(shader, "typeMorph"),
+    shapeMorph: gl.getUniformLocation(shader, "shapeMorph"),
+    shapeAMorph: gl.getUniformLocation(shader, "shapeAMorph"),
+    shapeBMorph: gl.getUniformLocation(shader, "shapeBMorph"),
   };
 
   shader.attributes = {
@@ -242,6 +261,12 @@ function main (canvas, gl) {
     gl.uniform2fv(shader.uniforms.scale, [params.shape1["Scale"],
                                           params.shape2["Scale"]]);
     gl.uniform1f(shader.uniforms.pointSize, params.rendering["Point size"]);
+
+    gl.uniform1f(shader.uniforms.shapeAMorph, params.morph["Shape A morph"]);
+    gl.uniform1f(shader.uniforms.shapeBMorph, params.morph["Shape B morph"]);
+    gl.uniform1f(shader.uniforms.shapeMorph, params.morph["Shape morph"]);
+    gl.uniform1f(shader.uniforms.typeMorph, params.morph["Type morph"]);
+
     gl.uniform4fv(shader.uniforms.color, [color[0] / 255, color[1] / 255,
                                           color[2] / 255, opacity]);
   });
