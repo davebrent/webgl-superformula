@@ -119,7 +119,6 @@ function createGUI (gl, callback) {
       "Draw mode": gl.LINES,
       "Background": [0, 0, 0],
       "Color": [255, 255, 255],
-      "Opacity": 0.5,
       "Point size": 0.75,
     },
     "morph": {
@@ -146,7 +145,6 @@ function createGUI (gl, callback) {
 
   renderView.addColor(controller.rendering, "Background").onChange(callback);
   renderView.addColor(controller.rendering, "Color").onChange(callback);
-  renderView.add(controller.rendering, "Opacity", 0, 1).onChange(callback);
   renderView.add(controller.rendering, "Point size", 0, 4).onChange(callback);
   renderView.open();
 
@@ -179,6 +177,13 @@ function createGUI (gl, callback) {
 
 
 function main (canvas, gl) {
+  gl.enable(gl.DEPTH_TEST);
+  gl.depthFunc(gl.LEQUAL);
+
+  gl.frontFace(gl.CCW);
+  gl.cullFace(gl.BACK);
+  gl.enable(gl.CULL_FACE);
+
   setSize(canvas, gl, window.innerWidth, window.innerHeight);
 
   window.addEventListener("resize", function () {
@@ -237,16 +242,11 @@ function main (canvas, gl) {
   gl.useProgram(shader);
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, attributes.index.buffer);
 
-  gl.enable(gl.DEPTH_TEST);
-  gl.depthFunc(gl.LESS);
-  gl.enable(gl.BLEND);
-  gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
 
   var gui = createGUI(gl, function (controller) {
     var params = (gui === undefined) ? controller : gui;
     var clearColor = params.rendering["Background"];
     var color = params.rendering["Color"];
-    var opacity = params.rendering["Opacity"];
 
     gl.clearColor(clearColor[0] / 255, clearColor[1] / 255,
                   clearColor[2] / 255, 1.0);
@@ -268,7 +268,7 @@ function main (canvas, gl) {
     gl.uniform1f(shader.uniforms.typeMorph, params.morph["Type morph"]);
 
     gl.uniform4fv(shader.uniforms.color, [color[0] / 255, color[1] / 255,
-                                          color[2] / 255, opacity]);
+                                          color[2] / 255, 1.0]);
   });
 
   var rotate = 0;
