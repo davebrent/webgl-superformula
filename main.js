@@ -52,7 +52,8 @@ function compileShader (gl, type, src) {
 function sphere (segments) {
   var vertices = [];
   var indices = [];
-  var x, y, v1, v2, v3, v4, theta, phi;
+  var uvs = [];
+  var x, y, u, v, v1, v2, v3, v4, theta, phi;
 
   for (y = 0; y <= segments; y++) {
     theta = (((y / segments) * 360) / 180.0) * Math.PI;
@@ -60,8 +61,14 @@ function sphere (segments) {
     for (x = 0; x <= segments; x++) {
       phi = (((x / segments) * 360) / 180.0) * Math.PI;
 
+      var u = 1 - (x / segments);
+      var v = 1 - (y / segments);
+
       vertices.push(phi);
       vertices.push(theta);
+
+      uvs.push(u);
+      uvs.push(v);
     }
   }
 
@@ -84,8 +91,22 @@ function sphere (segments) {
 
   return {
     vertices: new Float32Array(vertices),
-    indices: new Uint16Array(indices)
+    indices: new Uint16Array(indices),
+    uvs: new Float32Array(uvs),
   };
+}
+
+
+function createAttribute (gl, type, data, itemSize, numItems) {
+  var attribute = {
+    buffer: gl.createBuffer(),
+    itemSize: itemSize,
+    numItems: (numItems === undefined) ? data.length / itemSize : numItems
+  };
+
+  gl.bindBuffer(type, attribute.buffer);
+  gl.bufferData(type, data, gl.STATIC_DRAW);
+  return attribute;
 }
 
 
@@ -177,30 +198,25 @@ function main (canvas, gl) {
 
   var geometry = sphere(64);
 
-  var verticesBuffer = {};
-  verticesBuffer.buffer = gl.createBuffer();
-  verticesBuffer.itemSize = 2;
-  verticesBuffer.numItems = geometry.vertices.length / verticesBuffer.itemSize;
+  var attributes = {
+    uv: createAttribute(gl, gl.ARRAY_BUFFER, geometry.uvs, 2),
+    position: createAttribute(gl, gl.ARRAY_BUFFER, geometry.vertices, 2),
+    index: createAttribute(gl, gl.ELEMENT_ARRAY_BUFFER, geometry.indices, 1)
+  };
 
-  var indicesBuffer = {};
-  indicesBuffer.buffer = gl.createBuffer();
-  indicesBuffer.itemSize = 1;
-  indicesBuffer.numItems = geometry.indices.length;
-
-  gl.bindBuffer(gl.ARRAY_BUFFER, verticesBuffer.buffer);
-  gl.bufferData(gl.ARRAY_BUFFER, geometry.vertices, gl.STATIC_DRAW);
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indicesBuffer.buffer);
-  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, geometry.indices, gl.STATIC_DRAW);
   delete geometry;
 
-  gl.vertexAttribPointer(shader.attributes.position, verticesBuffer.itemSize,
+  gl.vertexAttribPointer(shader.attributes.uv, attributes.uv.itemSize,
+                         gl.FLOAT, false, 0, 0);
+  gl.vertexAttribPointer(shader.attributes.position,
+                         attributes.position.itemSize,
                          gl.FLOAT, false, 0, 0);
 
   var modelViewMatrix = glMatrix.mat4.create();
   var projectionMatrix = glMatrix.mat4.create();
 
   gl.useProgram(shader);
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indicesBuffer.buffer);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, attributes.index.buffer);
 
   gl.enable(gl.DEPTH_TEST);
   gl.depthFunc(gl.LESS);
@@ -253,7 +269,7 @@ function main (canvas, gl) {
     gl.uniformMatrix4fv(shader.uniforms.modelViewMatrix, false,
                         modelViewMatrix);
 
-    gl.drawElements(mode, indicesBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+    gl.drawElements(mode, attributes.index.numItems, gl.UNSIGNED_SHORT, 0);
     requestAnimationFrame(render);
   }());
 }
