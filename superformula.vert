@@ -16,6 +16,8 @@ uniform float typeMorph;
 
 uniform float pointSize;
 
+varying vec3 vPosition;
+
 
 float superformula (float phi, float m, float n1, float n2, float n3) {
   m = max(m, 1.0);
@@ -64,8 +66,9 @@ void main(void) {
   vec3 shapeBPos = mix(mode3, mode4, shapeBMorph);
 
   vec3 singlePos = mix(shapeAPos, shapeBPos, shapeMorph);
-  vec3 combinedPos = mix(singlePos, mode1, typeMorph);
+  vec3 position = mix(singlePos, mode1, typeMorph);
 
   gl_PointSize = pointSize;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(combinedPos, 1.0);
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  vPosition = normalize(position.xyz);
 }

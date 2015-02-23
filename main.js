@@ -118,7 +118,6 @@ function createGUI (gl, callback) {
       "Auto-rotate": true,
       "Draw mode": gl.LINES,
       "Background": [0, 0, 0],
-      "Color": [255, 255, 255],
       "Point size": 0.75,
     },
     "morph": {
@@ -127,8 +126,8 @@ function createGUI (gl, callback) {
       "Shape morph": 0.5,
       "Type morph": 0.5,
     },
-    "shape1": {"m": 2, "n1": 2, "n2": 1, "n3": 3, "Scale": 1},
-    "shape2": {"m": 3, "n1": 6, "n2": 5, "n3": 6, "Scale": 1}
+    "shape1": {"m": 2, "n1": 2, "n2": 1, "n3": 3, "Scale": 0.75},
+    "shape2": {"m": 3, "n1": 6, "n2": 5, "n3": 6, "Scale": 0.75}
   }
 
   var renderView = view.addFolder("Rendering");
@@ -144,7 +143,6 @@ function createGUI (gl, callback) {
   }).onChange(callback);
 
   renderView.addColor(controller.rendering, "Background").onChange(callback);
-  renderView.addColor(controller.rendering, "Color").onChange(callback);
   renderView.add(controller.rendering, "Point size", 0, 4).onChange(callback);
   renderView.open();
 
@@ -204,7 +202,6 @@ function main (canvas, gl) {
     n2: gl.getUniformLocation(shader, "n2"),
     n3: gl.getUniformLocation(shader, "n3"),
     scale: gl.getUniformLocation(shader, "scale"),
-    color: gl.getUniformLocation(shader, "color"),
     pointSize: gl.getUniformLocation(shader, "pointSize"),
     projectionMatrix: gl.getUniformLocation(shader, "projectionMatrix"),
     modelViewMatrix: gl.getUniformLocation(shader, "modelViewMatrix"),
@@ -220,7 +217,7 @@ function main (canvas, gl) {
 
   gl.enableVertexAttribArray(shader.attributes.position);
 
-  var geometry = sphere(64);
+  var geometry = sphere(96);
 
   var attributes = {
     uv: createAttribute(gl, gl.ARRAY_BUFFER, geometry.uvs, 2),
@@ -266,9 +263,6 @@ function main (canvas, gl) {
     gl.uniform1f(shader.uniforms.shapeBMorph, params.morph["Shape B morph"]);
     gl.uniform1f(shader.uniforms.shapeMorph, params.morph["Shape morph"]);
     gl.uniform1f(shader.uniforms.typeMorph, params.morph["Type morph"]);
-
-    gl.uniform4fv(shader.uniforms.color, [color[0] / 255, color[1] / 255,
-                                          color[2] / 255, 1.0]);
   });
 
   var rotate = 0;
