@@ -56,16 +56,12 @@ function sphere (segments) {
   var x, y, u, v, v1, v2, v3, v4, theta, phi;
 
   for (y = 0; y <= segments; y++) {
-    theta = (((y / segments) * 360) / 180.0) * Math.PI;
-
     for (x = 0; x <= segments; x++) {
-      phi = (((x / segments) * 360) / 180.0) * Math.PI;
-
       var u = 1 - (x / segments);
       var v = 1 - (y / segments);
 
-      vertices.push(phi);
-      vertices.push(theta);
+      vertices.push(x);
+      vertices.push(y);
 
       uvs.push(u);
       uvs.push(v);
@@ -90,7 +86,7 @@ function sphere (segments) {
   }
 
   return {
-    vertices: new Float32Array(vertices),
+    vertices: new Uint16Array(vertices),
     indices: new Uint16Array(indices),
     uvs: new Float32Array(uvs),
   };
@@ -116,18 +112,13 @@ function createGUI (gl, callback) {
   var controller = {
     "rendering": {
       "Auto-rotate": true,
-      "Draw mode": gl.LINES,
+      "Draw mode": gl.TRIANGLES,
       "Background": [0, 0, 0],
+      "Scale": 1,
       "Point size": 0.75,
     },
-    "morph": {
-      "Shape A morph": 0.5,
-      "Shape B morph": 0.5,
-      "Shape morph": 0.5,
-      "Type morph": 0.5,
-    },
-    "shape1": {"m": 2, "n1": 2, "n2": 1, "n3": 3, "Scale": 0.75},
-    "shape2": {"m": 3, "n1": 6, "n2": 5, "n3": 6, "Scale": 0.75}
+    "shape1": {"m": 5, "n1": 0.1, "n2": 1.7, "n3": 1.7, "a": 1, "b": 1},
+    "shape2": {"m": 1, "n1": 0.3, "n2": 0.5, "n3": 0.5, "a": 1, "b": 1}
   }
 
   var renderView = view.addFolder("Rendering");
@@ -144,29 +135,25 @@ function createGUI (gl, callback) {
 
   renderView.addColor(controller.rendering, "Background").onChange(callback);
   renderView.add(controller.rendering, "Point size", 0, 4).onChange(callback);
+  renderView.add(controller.rendering, "Scale", 0, 2).onChange(callback);
   renderView.open();
 
-  var morphView = view.addFolder("Morph");
-  morphView.add(controller.morph, "Shape A morph", 0, 1).onChange(callback);
-  morphView.add(controller.morph, "Shape B morph", 0, 1).onChange(callback);
-  morphView.add(controller.morph, "Shape morph", 0, 1).onChange(callback);
-  morphView.add(controller.morph, "Type morph", 0, 1).onChange(callback);
-  morphView.open();
-
-  var shape1View = view.addFolder("Superformula A");
-  shape1View.add(controller.shape1, "m", 1, 50).step(1).onChange(callback);
-  shape1View.add(controller.shape1, "n1", 1, 50).step(1).onChange(callback);
-  shape1View.add(controller.shape1, "n2", 1, 50).step(1).onChange(callback);
-  shape1View.add(controller.shape1, "n3", 1, 50).step(1).onChange(callback);
-  shape1View.add(controller.shape1, "Scale", 0, 2).onChange(callback);
+  var shape1View = view.addFolder("Superformula 1");
+  shape1View.add(controller.shape1, "a").onChange(callback);
+  shape1View.add(controller.shape1, "b").onChange(callback);
+  shape1View.add(controller.shape1, "m").onChange(callback);
+  shape1View.add(controller.shape1, "n1").onChange(callback);
+  shape1View.add(controller.shape1, "n2").onChange(callback);
+  shape1View.add(controller.shape1, "n3").onChange(callback);
   shape1View.open();
 
-  var shape2View = view.addFolder("Superformula B");
-  shape2View.add(controller.shape2, "m", 1, 50).step(1).onChange(callback);
-  shape2View.add(controller.shape2, "n1", 1, 50).step(1).onChange(callback);
-  shape2View.add(controller.shape2, "n2", 1, 50).step(1).onChange(callback);
-  shape2View.add(controller.shape2, "n3", 1, 50).step(1).onChange(callback);
-  shape2View.add(controller.shape2, "Scale", 0, 2).onChange(callback);
+  var shape2View = view.addFolder("Superformula 2");
+  shape2View.add(controller.shape1, "a").onChange(callback);
+  shape2View.add(controller.shape1, "b").onChange(callback);
+  shape2View.add(controller.shape2, "m").onChange(callback);
+  shape2View.add(controller.shape2, "n1").onChange(callback);
+  shape2View.add(controller.shape2, "n2").onChange(callback);
+  shape2View.add(controller.shape2, "n3").onChange(callback);
   shape2View.open();
 
   callback(controller);
@@ -201,14 +188,13 @@ function main (canvas, gl) {
     n1: gl.getUniformLocation(shader, "n1"),
     n2: gl.getUniformLocation(shader, "n2"),
     n3: gl.getUniformLocation(shader, "n3"),
+    a: gl.getUniformLocation(shader, "a"),
+    b: gl.getUniformLocation(shader, "b"),
     scale: gl.getUniformLocation(shader, "scale"),
     pointSize: gl.getUniformLocation(shader, "pointSize"),
     projectionMatrix: gl.getUniformLocation(shader, "projectionMatrix"),
     modelViewMatrix: gl.getUniformLocation(shader, "modelViewMatrix"),
-    typeMorph: gl.getUniformLocation(shader, "typeMorph"),
-    shapeMorph: gl.getUniformLocation(shader, "shapeMorph"),
-    shapeAMorph: gl.getUniformLocation(shader, "shapeAMorph"),
-    shapeBMorph: gl.getUniformLocation(shader, "shapeBMorph"),
+    segments: gl.getUniformLocation(shader, "segments"),
   };
 
   shader.attributes = {
@@ -217,7 +203,8 @@ function main (canvas, gl) {
 
   gl.enableVertexAttribArray(shader.attributes.position);
 
-  var geometry = sphere(96);
+  var numSegments = 96;
+  var geometry = sphere(numSegments);
 
   var attributes = {
     uv: createAttribute(gl, gl.ARRAY_BUFFER, geometry.uvs, 2),
@@ -225,44 +212,61 @@ function main (canvas, gl) {
     index: createAttribute(gl, gl.ELEMENT_ARRAY_BUFFER, geometry.indices, 1)
   };
 
-  delete geometry;
+  geometry = null;
 
   gl.vertexAttribPointer(shader.attributes.uv, attributes.uv.itemSize,
                          gl.FLOAT, false, 0, 0);
   gl.vertexAttribPointer(shader.attributes.position,
                          attributes.position.itemSize,
-                         gl.FLOAT, false, 0, 0);
+                         gl.UNSIGNED_SHORT, false, 0, 0);
 
   var modelViewMatrix = glMatrix.mat4.create();
   var projectionMatrix = glMatrix.mat4.create();
+  var normalMatrix = glMatrix.mat4.create();
 
   gl.useProgram(shader);
+  gl.uniform1f(shader.uniforms.segments, numSegments);
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, attributes.index.buffer);
-
 
   var gui = createGUI(gl, function (controller) {
     var params = (gui === undefined) ? controller : gui;
     var clearColor = params.rendering["Background"];
-    var color = params.rendering["Color"];
 
     gl.clearColor(clearColor[0] / 255, clearColor[1] / 255,
                   clearColor[2] / 255, 1.0);
 
-    gl.uniform2fv(shader.uniforms.m, [params.shape1["m"], params.shape2["m"]]);
-    gl.uniform2fv(shader.uniforms.n1, [params.shape1["n1"],
-                                       params.shape2["n1"]]);
-    gl.uniform2fv(shader.uniforms.n2, [params.shape1["n2"],
-                                       params.shape2["n2"]]);
-    gl.uniform2fv(shader.uniforms.n3, [params.shape1["n3"],
-                                       params.shape2["n3"]]);
-    gl.uniform2fv(shader.uniforms.scale, [params.shape1["Scale"],
-                                          params.shape2["Scale"]]);
     gl.uniform1f(shader.uniforms.pointSize, params.rendering["Point size"]);
+    gl.uniform1f(shader.uniforms.scale, params.rendering["Scale"]);
 
-    gl.uniform1f(shader.uniforms.shapeAMorph, params.morph["Shape A morph"]);
-    gl.uniform1f(shader.uniforms.shapeBMorph, params.morph["Shape B morph"]);
-    gl.uniform1f(shader.uniforms.shapeMorph, params.morph["Shape morph"]);
-    gl.uniform1f(shader.uniforms.typeMorph, params.morph["Type morph"]);
+    gl.uniform2fv(shader.uniforms.m, [
+      params.shape1["m"],
+      params.shape2["m"]
+    ]);
+
+    gl.uniform2fv(shader.uniforms.n1, [
+      params.shape1["n1"],
+      params.shape2["n1"]
+    ]);
+
+    gl.uniform2fv(shader.uniforms.n2, [
+      params.shape1["n2"],
+      params.shape2["n2"]
+    ]);
+
+    gl.uniform2fv(shader.uniforms.n3, [
+      params.shape1["n3"],
+      params.shape2["n3"]
+    ]);
+
+    gl.uniform2fv(shader.uniforms.a, [
+      params.shape1["a"],
+      params.shape2["a"]
+    ]);
+
+    gl.uniform2fv(shader.uniforms.b, [
+      params.shape1["b"],
+      params.shape2["b"]
+    ]);
   });
 
   var rotate = 0;
@@ -277,16 +281,16 @@ function main (canvas, gl) {
     glMatrix.mat4.perspective(projectionMatrix, 45, aspect, 0.1, 100.0);
     glMatrix.mat4.identity(modelViewMatrix);
     glMatrix.mat4.translate(modelViewMatrix, modelViewMatrix, [0, 0, -2.0]);
-    glMatrix.mat4.rotate(modelViewMatrix, modelViewMatrix, rotate, [0, 1, 0]);
+    glMatrix.mat4.rotate(modelViewMatrix, modelViewMatrix, rotate, [1, 1, 1]);
 
     if (autoRotate) {
       rotate += 0.005;
     }
 
-    gl.uniformMatrix4fv(shader.uniforms.projectionMatrix, false,
-                        projectionMatrix);
-    gl.uniformMatrix4fv(shader.uniforms.modelViewMatrix, false,
-                        modelViewMatrix);
+    gl.uniformMatrix4fv(
+      shader.uniforms.projectionMatrix, false, projectionMatrix);
+    gl.uniformMatrix4fv(
+      shader.uniforms.modelViewMatrix, false, modelViewMatrix);
 
     gl.drawElements(mode, attributes.index.numItems, gl.UNSIGNED_SHORT, 0);
     requestAnimationFrame(render);
